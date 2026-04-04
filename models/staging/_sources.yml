@@ -32,7 +32,7 @@ sources:
             tests:
               - not_null
               - relationships:
-                  to: source('bnpl_raw', 'checkout_sessions')
+                  to: "source('bnpl_raw', 'checkout_sessions')"
                   field: session_id
 
       - name: loan_applications
