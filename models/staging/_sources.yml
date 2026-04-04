@@ -1,0 +1,60 @@
+version: 2
+
+sources:
+  - name: bnpl_raw
+    database: "{{ env_var('DBT_DATABASE', 'bnpl-analytics-prod') }}"
+    schema: raw
+    description: "Raw event data ingested from the BNPL checkout platform"
+    tables:
+      - name: checkout_sessions
+        description: "One row per checkout session initiated by a user"
+        columns:
+          - name: session_id
+            description: "Primary key — unique checkout session"
+            tests:
+              - unique
+              - not_null
+          - name: user_id
+            tests:
+              - not_null
+          - name: cart_value_usd
+            tests:
+              - not_null
+
+      - name: checkout_steps
+        description: "One row per step entered within a checkout session"
+        columns:
+          - name: step_id
+            tests:
+              - unique
+              - not_null
+          - name: session_id
+            tests:
+              - not_null
+              - relationships:
+                  to: source('bnpl_raw', 'checkout_sessions')
+                  field: session_id
+
+      - name: loan_applications
+        description: "Credit decisions made during checkout"
+        columns:
+          - name: application_id
+            tests:
+              - unique
+              - not_null
+
+      - name: orders
+        description: "Completed or attempted orders"
+        columns:
+          - name: order_id
+            tests:
+              - unique
+              - not_null
+
+      - name: merchants
+        description: "Merchant master data"
+        columns:
+          - name: merchant_id
+            tests:
+              - unique
+              - not_null

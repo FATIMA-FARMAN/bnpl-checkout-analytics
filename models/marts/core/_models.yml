@@ -1,0 +1,50 @@
+version: 2
+
+models:
+  - name: fct_checkout_funnel_daily
+    description: >
+      Daily checkout funnel metrics aggregated by merchant, country,
+      device type, and platform. Primary source for funnel dashboards
+      and A/B test measurement.
+    columns:
+      - name: session_date
+        tests:
+          - not_null
+      - name: merchant_id
+        tests:
+          - not_null
+      - name: checkout_conversion_rate
+        description: "Sessions that reached confirmation / total sessions"
+
+  - name: fct_approval_rates_daily
+    description: >
+      Daily credit approval and decline metrics. Tracks approval rate
+      by merchant, country, installment plan, and decline reason breakdown.
+    columns:
+      - name: session_date
+        tests:
+          - not_null
+      - name: approval_rate
+        description: "Approved applications / total applications"
+
+  - name: fct_gmv_daily
+    description: >
+      Daily GMV and order volume. Separates realized GMV (completed orders)
+      from gross GMV to account for cancellations and refunds.
+    columns:
+      - name: order_date
+        tests:
+          - not_null
+      - name: merchant_id
+        tests:
+          - not_null
+
+  - name: dim_merchants
+    description: >
+      Merchant dimension enriched with trailing 30-day performance
+      metrics (GMV, orders, approval rate).
+    columns:
+      - name: merchant_id
+        tests:
+          - unique
+          - not_null
