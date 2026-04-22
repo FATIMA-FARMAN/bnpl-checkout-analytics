@@ -1,0 +1,42 @@
+version: 2
+
+models:
+  - name: fct_checkout_funnel_daily
+    description: "Daily checkout funnel KPIs — conversion rate, step drop rates, session volume."
+    columns:
+      - name: session_date
+        tests: [not_null]
+      - name: conversion_rate_pct
+        tests:
+          - dbt_utils.expression_is_true:
+              expression: ">= 0 and conversion_rate_pct <= 100"
+
+  - name: fct_approval_rates_daily
+    description: "Daily credit approval/decline rates by merchant and installment plan."
+    columns:
+      - name: session_date
+        tests: [not_null]
+      - name: approval_rate_pct
+        tests:
+          - dbt_utils.expression_is_true:
+              expression: ">= 0 and approval_rate_pct <= 100"
+
+  - name: fct_gmv_daily
+    description: "Daily GMV — realized vs gross, AOV, new vs returning split."
+    columns:
+      - name: order_date
+        tests: [not_null]
+      - name: realized_gmv_usd
+        tests:
+          - dbt_utils.expression_is_true:
+              expression: ">= 0"
+
+  - name: dim_merchants
+    description: "Merchant dimension with trailing 30-day performance metrics."
+    columns:
+      - name: merchant_id
+        tests: [unique, not_null]
+      - name: gmv_performance_status
+        tests:
+          - accepted_values:
+              values: ['on_track', 'at_risk', 'off_track', 'no_target']
