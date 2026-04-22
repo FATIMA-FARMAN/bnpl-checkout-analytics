@@ -1,42 +1,38 @@
-/*
-    Joins sessions to loan applications to compute per-session
-    credit decision outcomes. Used downstream in the approval
-    rate mart.
-*/
+-- Sessions joined to credit decisions.
+-- Enriches checkout funnel with approval outcome and decline reason.
 
-with sessions as (
-    select * from {{ ref('stg_checkout_sessions') }}
+with funnel as (
+    select * from {{ ref('int_checkout_funnel') }}
 ),
 
 applications as (
     select * from {{ ref('stg_loan_applications') }}
 ),
 
-joined as (
+final as (
     select
-        s.session_id,
-        s.user_id,
-        s.merchant_id,
-        s.cart_value_usd,
-        s.country_code,
-        s.device_type,
-        s.session_started_at,
-        date(s.session_started_at)              as session_date,
+        f.session_id,
+        f.customer_id,
+        f.merchant_id,
+        f.country_code,
+        f.session_date,
+        f.cart_value_usd,
+        f.converted,
 
         a.application_id,
-        a.decision_status,
+        a.decision,
         a.decline_reason,
-        a.risk_score,
+        a.installment_plan,
         a.requested_amount_usd,
         a.approved_amount_usd,
         a.decision_latency_seconds,
-        a.installment_plan,
 
-        case when a.decision_status = 'approved' then 1 else 0 end   as is_approved,
-        case when a.decision_status = 'declined' then 1 else 0 end   as is_declined,
-        case when a.application_id is null       then 1 else 0 end   as no_application
-    from sessions s
+        case when a.decision = 'approved' then true else false end   as credit_approved,
+        case when a.decision = 'declined' then true else false end   as credit_declined
+
+    from funnel f
     left join applications a using (session_id)
+    where f.reached_credit_check = 1
 )
 
-select * from joined
+select * from final
