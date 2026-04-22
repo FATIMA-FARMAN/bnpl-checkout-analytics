@@ -6,23 +6,24 @@ renamed as (
     select
         application_id,
         session_id,
-        user_id,
-        requested_amount_usd,
-        approved_amount_usd,
-        cast(applied_at as timestamp)            as applied_at,
-        cast(decision_at as timestamp)           as decision_at,
-        lower(trim(decision_status))             as decision_status,   -- approved / declined / pending
-        lower(trim(decline_reason))              as decline_reason,
-        risk_score,
-        installment_plan,   -- e.g. 3x, 4x, 6x
-        interest_rate_pct,
-        -- time from application to decision (seconds)
+        customer_id,
+        merchant_id,
+        cast(requested_amount_usd as numeric)               as requested_amount_usd,
+        cast(approved_amount_usd as numeric)                as approved_amount_usd,
+        lower(trim(decision))                               as decision,
+        lower(trim(decline_reason))                         as decline_reason,
+        lower(trim(installment_plan))                       as installment_plan,
+        cast(submitted_at as timestamp)                     as submitted_at,
+        cast(decided_at as timestamp)                       as decided_at,
         timestamp_diff(
-            cast(decision_at as timestamp),
-            cast(applied_at as timestamp),
+            cast(decided_at as timestamp),
+            cast(submitted_at as timestamp),
             second
-        )                                        as decision_latency_seconds
+        )                                                   as decision_latency_seconds,
+        cast(created_at as timestamp)                       as created_at
+
     from source
+    where application_id is not null
 )
 
 select * from renamed
