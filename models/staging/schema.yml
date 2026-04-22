@@ -1,0 +1,59 @@
+version: 2
+
+sources:
+  - name: bnpl_raw
+    database: "{{ env_var('DBT_BIGQUERY_PROJECT') }}"
+    schema: bnpl_raw
+    tables:
+      - name: checkout_sessions
+      - name: checkout_steps
+      - name: loan_applications
+      - name: orders
+      - name: merchants
+
+models:
+  - name: stg_checkout_sessions
+    description: "One row per checkout session. Normalised types and casing."
+    columns:
+      - name: session_id
+        tests: [unique, not_null]
+      - name: customer_id
+        tests: [not_null]
+      - name: session_status
+        tests:
+          - accepted_values:
+              values: ['initiated', 'completed', 'abandoned', 'expired']
+
+  - name: stg_checkout_steps
+    description: "Step-level events with time-on-step derived."
+    columns:
+      - name: step_id
+        tests: [unique, not_null]
+      - name: session_id
+        tests: [not_null]
+
+  - name: stg_loan_applications
+    description: "Credit applications with decision latency."
+    columns:
+      - name: application_id
+        tests: [unique, not_null]
+      - name: decision
+        tests:
+          - accepted_values:
+              values: ['approved', 'declined', 'pending', 'expired']
+
+  - name: stg_orders
+    description: "Confirmed orders net of refunds."
+    columns:
+      - name: order_id
+        tests: [unique, not_null]
+      - name: order_status
+        tests:
+          - accepted_values:
+              values: ['confirmed', 'cancelled', 'refunded', 'partially_refunded']
+
+  - name: stg_merchants
+    description: "Active merchant dimension."
+    columns:
+      - name: merchant_id
+        tests: [unique, not_null]
