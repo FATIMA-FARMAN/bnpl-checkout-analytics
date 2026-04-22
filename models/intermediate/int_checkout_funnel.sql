@@ -1,13 +1,5 @@
-/*
-    Builds a wide funnel table: one row per checkout session,
-    with a flag for each step reached.
-    Steps in order:
-      1. cart_view
-      2. payment_method_selection
-      3. personal_details
-      4. credit_check
-      5. confirmation
-*/
+-- Wide funnel table: one row per session with step-reached flags
+-- and drop-off identification. Consumed by fct_checkout_funnel_daily.
 
 with sessions as (
     select * from {{ ref('stg_checkout_sessions') }}
@@ -20,43 +12,44 @@ steps as (
 step_flags as (
     select
         session_id,
-        max(case when step_name = 'cart_view'                  then 1 else 0 end) as reached_cart_view,
-        max(case when step_name = 'payment_method_selection'   then 1 else 0 end) as reached_payment_selection,
-        max(case when step_name = 'personal_details'           then 1 else 0 end) as reached_personal_details,
-        max(case when step_name = 'credit_check'               then 1 else 0 end) as reached_credit_check,
-        max(case when step_name = 'confirmation'               then 1 else 0 end) as reached_confirmation,
+        max(case when step_name = 'cart'            then 1 else 0 end) as reached_cart,
+        max(case when step_name = 'customer_details' then 1 else 0 end) as reached_details,
+        max(case when step_name = 'credit_check'    then 1 else 0 end) as reached_credit_check,
+        max(case when step_name = 'payment_plan'    then 1 else 0 end) as reached_payment_plan,
+        max(case when step_name = 'confirmation'    then 1 else 0 end) as reached_confirmation,
+        -- Drop-off step = highest step reached where session did not complete
+        max(case when step_completed = false then step_sequence else 0 end) as dropoff_sequence,
+        max(case when step_completed = false then step_name else null end) as dropoff_step_name,
+        sum(time_on_step_seconds)                                           as total_time_seconds
 
-        -- last completed step
-        max(case when step_status = 'completed' then step_sequence else 0 end)    as last_completed_step_seq,
-
-        -- drop-off step: first step entered but not completed
-        min(case when step_status = 'abandoned' then step_name else null end)     as dropoff_step
     from steps
-    group by 1
+    group by session_id
 ),
 
-joined as (
+final as (
     select
         s.session_id,
-        s.user_id,
+        s.customer_id,
         s.merchant_id,
-        s.session_started_at,
-        s.cart_value_usd,
-        s.device_type,
-        s.platform,
         s.country_code,
-        s.utm_source,
-        s.utm_campaign,
+        s.device_type,
+        s.session_status,
+        s.cart_value_usd,
+        s.session_started_at,
+        date(s.session_started_at)                          as session_date,
 
-        coalesce(f.reached_cart_view, 0)           as reached_cart_view,
-        coalesce(f.reached_payment_selection, 0)   as reached_payment_selection,
-        coalesce(f.reached_personal_details, 0)    as reached_personal_details,
-        coalesce(f.reached_credit_check, 0)        as reached_credit_check,
-        coalesce(f.reached_confirmation, 0)        as reached_confirmation,
-        coalesce(f.last_completed_step_seq, 0)     as last_completed_step_seq,
-        f.dropoff_step
+        coalesce(f.reached_cart, 0)                         as reached_cart,
+        coalesce(f.reached_details, 0)                      as reached_details,
+        coalesce(f.reached_credit_check, 0)                 as reached_credit_check,
+        coalesce(f.reached_payment_plan, 0)                 as reached_payment_plan,
+        coalesce(f.reached_confirmation, 0)                 as reached_confirmation,
+
+        case when s.session_status = 'completed' then true else false end as converted,
+        f.dropoff_step_name,
+        coalesce(f.total_time_seconds, 0)                   as total_time_seconds
+
     from sessions s
     left join step_flags f using (session_id)
 )
 
-select * from joined
+select * from final
